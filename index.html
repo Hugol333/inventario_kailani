@@ -136,11 +136,7 @@
       const saveBtn = document.getElementById("saveBtn");
 
       async function fetchProducts() {
-        if (
-          !SUPABASE_ANON_KEY ||
-          SUPABASE_ANON_KEY ===
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZHdjbGFrY2V5Y21ydnRubHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTUzOTMsImV4cCI6MjEwMjQ5MTM5M30.YrKA-y8-ABqmMvN1T4Cfv80aZZ5tyc64V-lvHKrfs5Q"
-        ) {
+        if (!SUPABASE_ANON_KEY) {
           messageEl.textContent =
             "Falta SUPABASE_ANON_KEY. Abre el archivo y reemplaza la constante con tu ANON KEY.";
           return;
