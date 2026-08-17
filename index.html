@@ -94,7 +94,7 @@
   <body>
     <div id="app">
       <header>
-        <h1>inventario kailani</h1>
+        <h1>INVENTARIO KAILANI</h1>
       </header>
 
       <div class="small">
@@ -232,7 +232,7 @@
         messageEl.textContent = "Selección limpiada.";
       }
 
-      function saveSelection() {
+      async function saveSelection() {
         const checks = tableWrap.querySelectorAll(
           'input[type="checkbox"]:checked',
         );
@@ -249,9 +249,77 @@
           columna3: c.dataset.colB,
         }));
 
-        resultPre.textContent = JSON.stringify(list, null, 2);
-        resultEl.style.display = "block";
-        messageEl.textContent = `Guardado ${list.length} elemento(s).`;
+        // Crear una nueva nota en inventory_notes
+        messageEl.textContent = "Creando nota...";
+        try {
+          const noteDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+          let res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_notes`, {
+            method: "POST",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify([{ note_date: noteDate }]),
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error("Error creando nota: " + res.status + " / " + text);
+          }
+
+          const createdNotes = await res.json();
+          const noteId = createdNotes[0] && createdNotes[0].id;
+          if (!noteId) throw new Error("No se obtuvo el id de la nota creada.");
+
+          // Preparar items para insertar en inventory_note_items
+          const items = list.map((it) => ({
+            note_id: Number(noteId),
+            product_id: Number(it.id),
+          }));
+
+          res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_note_items`, {
+            method: "POST",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify(items),
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(
+              "Error insertando items: " + res.status + " / " + text,
+            );
+          }
+
+          const insertedItems = await res.json();
+
+          resultPre.textContent = JSON.stringify(
+            { note: createdNotes[0], items: insertedItems },
+            null,
+            2,
+          );
+          resultEl.style.display = "block";
+          messageEl.textContent = `Nota creada (id=${noteId}) con ${insertedItems.length} item(s).`;
+
+          // Limpiar selección visual
+          const allChecks = tableWrap.querySelectorAll(
+            'input[type="checkbox"]',
+          );
+          allChecks.forEach((c) => (c.checked = false));
+        } catch (err) {
+          console.error(err);
+          messageEl.textContent = "Error al guardar: " + err.message;
+          resultEl.style.display = "none";
+        }
       }
 
       function escapeHtml(s) {
