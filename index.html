@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inventario Kailani</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          "Helvetica Neue",
+          Arial;
+        margin: 0;
+        padding: 20px;
+        background: #fafafa;
+      }
+      header {
+        background: #e5de00;
+        padding: 24px 20px;
+        border-radius: 6px;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0;
+        color: #000;
+        font-size: 36px;
+        font-weight: 700;
+      }
+      #app {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e6e6e6;
+        text-align: left;
+      }
+      th {
+        background: #f6f6f6;
+        font-weight: 600;
+      }
+      tr:hover td {
+        background: #fcfcf8;
+      }
+      .controls {
+        margin: 12px 0;
+        display: flex;
+        gap: 8px;
+      }
+      button {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        background: #fff;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      button.primary {
+        background: #0078d4;
+        color: #fff;
+        border-color: #0067b8;
+      }
+      #message {
+        margin-top: 12px;
+        color: #333;
+      }
+      #result {
+        margin-top: 14px;
+        background: #fff;
+        padding: 12px;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+      }
+      .small {
+        font-size: 13px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>inventario kailani</h1>
+      </header>
+
+      <div class="small">
+        Conectando a Supabase:
+        <span id="supabaseUrl">https://ikdwclakceycmrvtnlsp.supabase.co</span>
+      </div>
+
+      <div class="controls">
+        <button id="reloadBtn">Reiniciar</button>
+        <button id="saveBtn" class="primary">Guardar</button>
+      </div>
+
+      <div id="message" class="small">Cargando productos...</div>
+
+      <div id="tableWrap"></div>
+
+      <div id="result" style="display: none">
+        <strong>Seleccionados:</strong>
+        <pre id="resultPre"></pre>
+      </div>
+
+      <p class="small">
+        Nota: reemplaza la variable <code>SUPABASE_ANON_KEY</code> en el script
+        con tu ANON KEY del proyecto Supabase.
+      </p>
+    </div>
+
+    <script>
+      const SUPABASE_URL = "https://ikdwclakceycmrvtnlsp.supabase.co";
+      // TODO: Reemplaza esto con tu ANON KEY (public) de Supabase
+      const SUPABASE_ANON_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZHdjbGFrY2V5Y21ydnRubHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTUzOTMsImV4cCI6MjEwMjQ5MTM5M30.YrKA-y8-ABqmMvN1T4Cfv80aZZ5tyc64V-lvHKrfs5Q";
+
+      const tableWrap = document.getElementById("tableWrap");
+      const messageEl = document.getElementById("message");
+      const resultEl = document.getElementById("result");
+      const resultPre = document.getElementById("resultPre");
+      const reloadBtn = document.getElementById("reloadBtn");
+      const saveBtn = document.getElementById("saveBtn");
+
+      async function fetchProducts() {
+        if (
+          !SUPABASE_ANON_KEY ||
+          SUPABASE_ANON_KEY ===
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZHdjbGFrY2V5Y21ydnRubHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTUzOTMsImV4cCI6MjEwMjQ5MTM5M30.YrKA-y8-ABqmMvN1T4Cfv80aZZ5tyc64V-lvHKrfs5Q"
+        ) {
+          messageEl.textContent =
+            "Falta SUPABASE_ANON_KEY. Abre el archivo y reemplaza la constante con tu ANON KEY.";
+          return;
+        }
+
+        messageEl.textContent = "Consultando tabla `products`...";
+
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error("Error en respuesta: " + res.status + " / " + text);
+          }
+
+          const data = await res.json();
+          renderTable(data);
+          messageEl.textContent = `Mostrando ${data.length} filas (usa las casillas para seleccionar).`;
+        } catch (err) {
+          console.error(err);
+          messageEl.textContent = "Error al consultar Supabase: " + err.message;
+          tableWrap.innerHTML = "";
+        }
+      }
+
+      function renderTable(rows) {
+        if (!rows || rows.length === 0) {
+          tableWrap.innerHTML =
+            '<div class="small">No hay registros en la tabla `products`.</div>';
+          return;
+        }
+
+        // Determinar las columnas 2 y 3 (índices 1 y 2)
+        const keys = Object.keys(rows[0]);
+        const colIndexA = keys[1] ? 1 : 0;
+        const colIndexB = keys[2] ? 2 : keys[1] ? 1 : 0;
+        const colA = keys[colIndexA];
+        const colB = keys[colIndexB];
+
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        const trh = document.createElement("tr");
+        trh.innerHTML = `<th>${escapeHtml(colA)}</th><th>${escapeHtml(colB)}</th><th>Seleccionar</th>`;
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+
+        rows.forEach((row, idx) => {
+          const tr = document.createElement("tr");
+          const valA =
+            row[colA] === null || row[colA] === undefined
+              ? ""
+              : String(row[colA]);
+          const valB =
+            row[colB] === null || row[colB] === undefined
+              ? ""
+              : String(row[colB]);
+          const idAttr = row.id !== undefined ? row.id : idx;
+
+          tr.innerHTML = `<td>${escapeHtml(valA)}</td><td>${escapeHtml(valB)}</td>`;
+
+          const tdCheck = document.createElement("td");
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.dataset.idx = idx;
+          input.dataset.colA = valA;
+          input.dataset.colB = valB;
+          input.dataset.id = idAttr;
+
+          tdCheck.appendChild(input);
+          tr.appendChild(tdCheck);
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        tableWrap.innerHTML = "";
+        tableWrap.appendChild(table);
+      }
+
+      function resetSelection() {
+        const checks = tableWrap.querySelectorAll('input[type="checkbox"]');
+        checks.forEach((c) => (c.checked = false));
+        resultEl.style.display = "none";
+        resultPre.textContent = "";
+        messageEl.textContent = "Selección limpiada.";
+      }
+
+      function saveSelection() {
+        const checks = tableWrap.querySelectorAll(
+          'input[type="checkbox"]:checked',
+        );
+        if (checks.length === 0) {
+          messageEl.textContent = "No hay elementos seleccionados.";
+          resultEl.style.display = "none";
+          resultPre.textContent = "";
+          return;
+        }
+
+        const list = Array.from(checks).map((c) => ({
+          id: c.dataset.id,
+          columna2: c.dataset.colA,
+          columna3: c.dataset.colB,
+        }));
+
+        resultPre.textContent = JSON.stringify(list, null, 2);
+        resultEl.style.display = "block";
+        messageEl.textContent = `Guardado ${list.length} elemento(s).`;
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      // Eventos
+      reloadBtn.addEventListener("click", () => {
+        resetSelection();
+        fetchProducts();
+      });
+
+      saveBtn.addEventListener("click", () => saveSelection());
+
+      // Inicializar
+      fetchProducts();
+    </script>
+  </body>
+</html>
